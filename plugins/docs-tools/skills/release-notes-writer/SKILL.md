@@ -130,9 +130,10 @@ degradation caused by `oc exec` and shell processes. When you apply a
 `PerformanceProfile`, exec processes are automatically pinned to a designated CPU
 so they do not interrupt your workload CPUs.
 
-This feature is enabled by default for guaranteed QoS pods with whole-integer CPU
-requests. You can disable it per-pod with an annotation if your workloads require
-the previous behavior.
+This feature is enabled by default for Guaranteed QoS pods with whole-integer CPU
+requests, so your Telco RAN DU and 5G Core applications maintain consistent,
+predictable performance without additional configuration. You can disable it
+per-pod with an annotation if your workloads require the previous behavior.
 
 For more information, see xref:scalability_and_performance/cnf-tuning-low-latency-nodes-with-perf-profile.adoc#cnf-protecting-low-latency-workloads_cnf-low-latency-perf-profile[Protecting low-latency workloads from exec process interruption].
 ```
