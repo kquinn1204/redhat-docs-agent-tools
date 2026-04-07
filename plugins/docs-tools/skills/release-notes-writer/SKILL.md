@@ -32,54 +32,62 @@ Then apply the template and guidelines below to draft a release note.
 
 The user can also provide a plain-text description of the feature. Apply the same template and guidelines to produce the release note.
 
-## Release note template
+## Release note templates
 
-Every release note entry MUST follow this four-part structure:
+Release notes in the OCP repo are AsciiDoc bullet entries (`*`) under category sections. Each entry includes a JIRA tracking ID. There are two templates depending on the type of change.
 
-### 1. Heading
+### New feature or enhancement
 
-A short, descriptive summary of the feature or enhancement. Write it as a noun phrase, not a sentence.
+A single bullet entry with a JIRA comment above it. Structure:
 
-- Good: "CPU isolation for exec processes in low-latency pods"
-- Bad: "This release adds a new feature that isolates CPUs"
+1. **JIRA tracking comment** — AsciiDoc comment with the JIRA ID
+2. **What you can now do** — Start with "With this release, you can..." or "You can now..."
+3. **Why it matters** — One sentence on the benefit to the user
+4. **Documentation link** — "For more information, see xref:..."
 
-### 2. What and How (the feature)
-
-Describe the feature from the user's perspective. Focus on what the user can now do. Use second person ("you").
-
-- Start with: "With this release, you can..." or "You can now..."
-- Describe the user action, not the internal implementation
-- Example: "You can use this feature to directly create and manage SR-IOV networks within your application namespaces."
-
-### 3. Why and Result (the benefit)
-
-Explain why the feature was added and how it benefits the user's workflow. One to two sentences.
-
-- Focus on the outcome for the user, not the engineering motivation
-- Example: "Namespaced SR-IOV networks provide greater control over your network configurations and help to simplify your workflow."
-
-### 4. Call to action (documentation link)
-
-Provide a link to the detailed product documentation.
-
-- Format: `For more information, see link:<URL>[<Link text>].`
-- If the exact URL is not known, use a placeholder: `For more information, see xref:<assembly-id>[<section title>].`
-
-## Output format
-
-Produce the release note as an AsciiDoc snippet:
+Format:
 
 ```asciidoc
-== <Heading>
-
-<What and How paragraph>
-
-<Why and Result paragraph>
-
+// <JIRA-ID>
+* With this release, you can <what the user can now do>. <Why it matters — the benefit>.
++
 For more information, see xref:<assembly-or-module-id>[<section title>].
 ```
 
 If multiple distinct features are covered in a single PR, produce one entry per feature.
+
+### Bug fix (fixed issue)
+
+A single narrative paragraph using the **Before / Consequence / Fix** flow, with the JIRA ID in parentheses at the end. Do not use subheadings — write it as plain prose.
+
+Format:
+
+```asciidoc
+// <JIRA-ID>
+* Before this update, <description of the previous behavior or problem>. As a consequence, <impact on the user>. With this release, <what was changed or fixed>. (<JIRA-ID>)
+```
+
+### Deprecated feature
+
+Use when a feature or parameter is being removed or replaced. Do not say "discontinued." Frame the change positively.
+
+Format:
+
+```asciidoc
+// <JIRA-ID>
+* In this release, <what is deprecated>. <What to use instead or what direction the product is taking>. (<JIRA-ID>)
+```
+
+### Technology Preview to GA
+
+Use when a Technology Preview feature moves to fully supported (General Availability).
+
+Format:
+
+```asciidoc
+// <JIRA-ID>
+* The <feature name> feature is now fully supported. Previously available as a Technology Preview, this feature <brief description of what it does>. For more information, see xref:<assembly-or-module-id>[<section title>].
+```
 
 ## Style guidelines
 
@@ -111,31 +119,33 @@ Follow these rules strictly when writing release notes:
 ## Workflow
 
 1. **Extract context.** Read the PR diff and description to identify the core functionality and the problem it solves.
-2. **Identify the audience.** Determine which telco persona benefits (RAN engineer, platform admin, network operator, etc.).
-3. **Draft the heading.** Write a concise noun-phrase summary.
-4. **Write the What/How.** One to two sentences from the user's perspective.
-5. **Write the Why/Result.** One to two sentences on the benefit.
-6. **Add the link.** Include an xref or URL placeholder.
+2. **Identify the type.** Determine whether this is a new feature, bug fix, deprecation, or TP-to-GA change.
+3. **Extract the JIRA ID.** Pull the JIRA tracking ID from the PR title, description, or branch name.
+4. **Apply the template.** Use the matching template for the change type.
+5. **Write from the user's perspective.** Use second person, active voice, present tense.
+6. **Add the link.** Include an xref or URL placeholder for new features and TP-to-GA entries.
 7. **Polish.** Check against the style guidelines. Cut any word that does not add meaning.
 
-## Example
+## Examples
 
-Given a PR that adds ExecCPUAffinity documentation for low-latency workloads, the output should look like:
+### New feature example
+
+Given a PR that adds ExecCPUAffinity documentation for low-latency workloads (TELCODOCS-2496):
 
 ```asciidoc
-== CPU isolation for exec processes in low-latency pods
-
-With this release, you can protect latency-sensitive workloads from performance
-degradation caused by `oc exec` and shell processes. When you apply a
-`PerformanceProfile`, exec processes are automatically pinned to a designated CPU
-so they do not interrupt your workload CPUs.
-
-This feature is enabled by default for Guaranteed QoS pods with whole-integer CPU
-requests, so your Telco RAN DU and 5G Core applications maintain consistent,
-predictable performance without additional configuration. You can disable it
-per-pod with an annotation if your workloads require the previous behavior.
-
+// TELCODOCS-2496
+* With this release, you can protect latency-sensitive workloads from performance degradation caused by `oc exec` and shell processes. When you apply a `PerformanceProfile`, exec processes are automatically pinned to a designated CPU so they do not interrupt your workload CPUs. This feature is enabled by default for Guaranteed QoS pods with whole-integer CPU requests, so your Telco RAN DU and 5G Core applications maintain consistent, predictable performance without additional configuration.
++
 For more information, see xref:scalability_and_performance/cnf-tuning-low-latency-nodes-with-perf-profile.adoc#cnf-protecting-low-latency-workloads_cnf-low-latency-perf-profile[Protecting low-latency workloads from exec process interruption].
+```
+
+### Bug fix example
+
+Given a PR that fixes a vSphere validation issue (OCPBUGS-63584):
+
+```asciidoc
+// OCPBUGS-63584
+* Before this update, the vSphere platform configuration lacked a validation check to prevent the simultaneous definition of both a custom virtual machine template and a `clusterOSImage` parameter. As a consequence, users could provide both parameters in the installation configuration, leading to ambiguity and potential deployment failures. With this release, the vSphere validation logic has been updated to ensure that `template` and `clusterOSImage` parameters are treated as mutually exclusive, returning a specific error message if both fields are populated. (OCPBUGS-63584)
 ```
 
 ## Integration with other skills
