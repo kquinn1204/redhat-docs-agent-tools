@@ -58,13 +58,13 @@ If multiple distinct features are covered in a single PR, produce one entry per 
 
 ### Bug fix (fixed issue)
 
-A single narrative paragraph using the **Before / Consequence / Fix** flow, with the JIRA ID in parentheses at the end. Do not use subheadings — write it as plain prose.
+A single narrative paragraph using the **Before / Consequence / Fix / Result** flow, with the JIRA ID in parentheses at the end. Do not use subheadings — write it as plain prose.
 
 Format:
 
 ```asciidoc
 // <JIRA-ID>
-* Before this update, <description of the previous behavior or problem>. As a consequence, <impact on the user>. With this release, <what was changed or fixed>. (<JIRA-ID>)
+* Before this update, <description of the previous behavior or problem when the user did something specific>. <Consequence — the impact on the user>. With this release, <what was changed or fixed>. As a result, <positive outcome for the user>. (<JIRA-ID>)
 ```
 
 ### Deprecated feature
@@ -145,7 +145,7 @@ Given a PR that fixes a vSphere validation issue (OCPBUGS-63584):
 
 ```asciidoc
 // OCPBUGS-63584
-* Before this update, the vSphere platform configuration lacked a validation check to prevent the simultaneous definition of both a custom virtual machine template and a `clusterOSImage` parameter. As a consequence, users could provide both parameters in the installation configuration, leading to ambiguity and potential deployment failures. With this release, the vSphere validation logic has been updated to ensure that `template` and `clusterOSImage` parameters are treated as mutually exclusive, returning a specific error message if both fields are populated. (OCPBUGS-63584)
+* Before this update, the vSphere platform configuration lacked a validation check to prevent the simultaneous definition of both a custom virtual machine template and a `clusterOSImage` parameter. This issue allowed users to provide both parameters in the installation configuration, leading to ambiguity and potential deployment failures. With this release, the vSphere validation logic has been updated to ensure that `template` and `clusterOSImage` parameters are treated as mutually exclusive. As a result, a specific error message is returned if both fields are populated, which prevents misconfiguration. (OCPBUGS-63584)
 ```
 
 ## Integration with other skills
