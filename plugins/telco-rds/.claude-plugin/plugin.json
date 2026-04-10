@@ -1,0 +1,9 @@
+{
+  "name": "telco-rds",
+  "version": "0.0.1",
+  "description": "Telco Reference Design Specification pipeline. Transforms monolithic RDS AsciiDoc files into modular openshift-docs format.",
+  "author": {
+    "name": "Kevin Quinn",
+    "email": "kquinn@redhat.com"
+  }
+}

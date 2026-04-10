@@ -1,0 +1,43 @@
+# Telco RDS Pipeline
+#
+# Transforms a monolithic telco RDS AsciiDoc file (from GitLab) into
+# modular openshift-docs format: individual modules + assembly file.
+#
+# Usage:
+#   /docs-orchestrator <ticket> --workflow telco-rds --source <path-to-monolith>
+#
+# The --source flag points to the monolithic AsciiDoc file, e.g.:
+#   ~/reference-design-specifications/telco-core/telco-core-rds.adoc
+#
+# Optional:
+#   --reference-assembly <path>  Existing openshift-docs assembly to copy
+#                                additional resources sections from
+
+workflow:
+  name: telco-rds
+  description: Transform monolithic telco RDS AsciiDoc into modular openshift-docs format. Strips internal content, splits into modules, generates assembly, and reviews.
+
+  steps:
+    - name: strip-internal
+      skill: telco-rds:telco-rds-strip-internal
+      description: Remove internal-only tagged content and top-level attributes from monolith
+
+    - name: split-monolith
+      skill: telco-rds:telco-rds-split-monolith
+      description: Split stripped monolith into individual modules by [id] markers
+      inputs: [strip-internal]
+
+    - name: generate-assembly
+      skill: telco-rds:telco-rds-generate-assembly
+      description: Generate openshift-docs assembly file with include directives and leveloffsets
+      inputs: [split-monolith]
+
+    - name: style-review
+      skill: docs-tools:docs-workflow-style-review
+      description: Vale linting and style guide compliance review of generated modules
+      inputs: [split-monolith, generate-assembly]
+
+    - name: modular-docs-review
+      skill: docs-tools:docs-review-modular-docs
+      description: Validate module types, anchor IDs, and assembly structure
+      inputs: [split-monolith, generate-assembly]
