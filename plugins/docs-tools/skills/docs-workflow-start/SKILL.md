@@ -27,7 +27,7 @@ Same argument set as docs-orchestrator:
 **Pass-through mode**: If ANY `--` switches are present in the args string, invoke docs-orchestrator directly with all original arguments. Do NOT use AskUserQuestion.
 
 ```
-Skill: docs-tools:docs-orchestrator, args: "<all original args>"
+Skill: docs-orchestrator, args: "<all original args>"
 ```
 
 **Interactive mode**: If no `--` switches are present (bare invocation or just a ticket ID), proceed to the interactive input gathering below.
@@ -57,7 +57,7 @@ Use AskUserQuestion with 1 question:
 **If "Resume existing workflow"**: Skip all remaining AskUserQuestion calls. Invoke the orchestrator with just the ticket ID:
 
 ```
-Skill: docs-tools:docs-orchestrator, args: "<ticket>"
+Skill: docs-orchestrator, args: "<ticket>"
 ```
 
 The orchestrator detects the existing progress file and resumes automatically. STOP here — do not continue to Call 2.
@@ -183,13 +183,13 @@ AsciiDoc format and current repo placement are defaults — no flags needed.
 Invoke the orchestrator with the ticket ID and all constructed flags:
 
 ```
-Skill: docs-tools:docs-orchestrator, args: "<ticket> <constructed flags>"
+Skill: docs-orchestrator, args: "<ticket> <constructed flags>"
 ```
 
 Example:
 
 ```
-Skill: docs-tools:docs-orchestrator, args: "PROJ-123 --mkdocs --pr https://github.com/org/repo/pull/42 --draft"
+Skill: docs-orchestrator, args: "PROJ-123 --mkdocs --pr https://github.com/org/repo/pull/42 --draft"
 ```
 
 ## Execute: Specific step(s)
@@ -212,7 +212,7 @@ Determine which workflow YAML to use:
 if [[ -f ".claude/docs-workflow.yaml" ]]; then
   YAML_PATH=".claude/docs-workflow.yaml"
 else
-  YAML_PATH="${CLAUDE_SKILL_DIR}/../docs-orchestrator/defaults/docs-workflow.yaml"
+  YAML_PATH="${CLAUDE_PLUGIN_ROOT}/skills/docs-orchestrator/defaults/docs-workflow.yaml"
 fi
 ```
 
