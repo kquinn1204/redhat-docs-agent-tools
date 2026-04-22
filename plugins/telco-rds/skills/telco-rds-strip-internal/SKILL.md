@@ -16,6 +16,19 @@ Use this skill as the first step in the telco RDS pipeline, before splitting the
 - Removing all content between `// tag::internal[]` and `// end::internal[]` markers (inclusive)
 - Removing top-level product attribute definitions (`:product-title:`, `:product-version:`, `:imagesdir:`, `:rh-storage:`, `:cgu-operator:`, `:rh-rhacm:`) which are provided by `_attributes/common-attributes.adoc` in openshift-docs
 
+## Prerequisites
+
+Before running, verify both exist — stop and report if either is missing:
+
+```bash
+ls ${CLAUDE_SKILL_DIR}/scripts/strip-internal.sh
+ls <source-dir>/rds-downstream-mapping.yaml  # same directory as the input monolith
+```
+
+## Mapping reference
+
+The upstream repo contains `rds-downstream-mapping.yaml` and `DOWNSTREAM_PORT.adoc` alongside the monolith. Before stripping, read `rds-downstream-mapping.yaml` to confirm the current `internal_only` section list — the tag markers in the source should match these IDs. If new internal sections have been added upstream, verify they have `// tag::internal[]` markers before proceeding.
+
 ## Usage
 
 ```bash

@@ -20,6 +20,25 @@ Use this skill after `telco-rds-strip-internal` has removed internal content. Th
 - Demotes headings so each module's top heading is `=` (level 1)
 - Writes a `manifest.json` listing all modules with their heading levels for assembly generation
 
+## Prerequisites
+
+Before running, verify all exist — stop and report if any are missing:
+
+```bash
+ls ${CLAUDE_SKILL_DIR}/scripts/split-monolith.py
+python3 --version
+ls <source-dir>/rds-downstream-mapping.yaml  # same directory as the original monolith
+ls <input-file>  # stripped monolith from previous step
+```
+
+## Mapping reference
+
+Before splitting, read `rds-downstream-mapping.yaml` from the upstream repo directory. Use it to:
+
+- **Skip internal-only sections** — IDs listed under `internal_only` should not produce modules (they should already be stripped, but verify)
+- **Rename mismatched modules** — IDs listed under `name_mismatches` must use the `downstream_module` filename instead of the default 1:1 mapping (e.g., `telco-core-deployment` → `telco-core-deployment-components.adoc`)
+- **Handle edge cases** — IDs listed under `edge_cases` with `downstream_module: null` should not produce module files; include the `note` in the manifest for the assembly step
+
 ## Usage
 
 ```bash
@@ -37,42 +56,14 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/split-monolith.py <input-file> \
 
 ## Output
 
-### Module files
+The script produces individual `.adoc` module files (with `:_mod-docs-content-type:` headers and `_{context}` suffixed IDs) and a `manifest.json` listing all modules with `filename`, `id`, `level`, `content_type`, and `heading`. The `level` field maps to assembly `leveloffset`: level 2 → `+1`, level 3 → `+2`, level 4 → `+3`.
 
-Each module file has this structure:
+After the script completes, verify the output:
 
-```asciidoc
-:_mod-docs-content-type: CONCEPT
-[id="telco-core-networking_{context}"]
-= Networking
-
-<section content with demoted sub-headings>
+```bash
+ls <output-dir>/*.adoc | wc -l  # module count should match sections list in mapping
+cat <output-dir>/manifest.json | python3 -m json.tool  # verify valid JSON
 ```
-
-### Manifest (manifest.json)
-
-```json
-{
-  "context": "telco-core",
-  "rds_type": "core",
-  "title": "Telco core reference design specifications",
-  "title_id": "telco-core-reference-design-specification-for-product-title-product-version",
-  "modules": [
-    {
-      "filename": "telco-core-networking.adoc",
-      "id": "telco-core-networking",
-      "level": 3,
-      "content_type": "CONCEPT",
-      "heading": "Networking"
-    }
-  ]
-}
-```
-
-The `level` field records the original heading depth in the monolith:
-- `2` (==) — top-level section, use `leveloffset=+1` in the assembly
-- `3` (===) — subsection, use `leveloffset=+2`
-- `4` (====) — sub-subsection, use `leveloffset=+3`
 
 ## Example
 
