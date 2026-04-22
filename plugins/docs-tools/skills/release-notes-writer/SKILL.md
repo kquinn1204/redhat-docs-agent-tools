@@ -1,36 +1,18 @@
 ---
 name: release-notes-writer
 description: Generate user-centric release notes for OpenShift telco features from GitHub PR content. Reads PR diffs, applies structured templates, and outputs AsciiDoc release note entries.
-author: Kevin Quinn (kquinn@redhat.com)
 allowed-tools: Read, Bash, Grep, Glob, Agent, WebFetch
 ---
 
 # Release Notes Writer
 
-Write release notes for OpenShift telco features by analyzing GitHub PR content and applying a structured, user-centric template.
+Write release notes for OpenShift telco features by analyzing GitHub PR content or user-provided descriptions, applying structured templates below.
 
-## Capabilities
-
-- Read a GitHub PR to extract the technical context (files changed, descriptions, AsciiDoc content)
-- Generate release note entries following the Red Hat OpenShift release note template
-- Apply telco-specific tone and style guidelines
-- Output AsciiDoc-formatted release note entries ready for inclusion in release note assemblies
-
-## Usage
-
-### From a GitHub PR
-
-When the user provides a PR URL, extract the content first:
+When given a PR URL, extract content first:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py read --url "<PR_URL>" --filter "*.adoc"
 ```
-
-Then apply the template and guidelines below to draft a release note.
-
-### From manual input
-
-The user can also provide a plain-text description of the feature. Apply the same template and guidelines to produce the release note.
 
 ## Release note templates
 
@@ -91,40 +73,20 @@ Format:
 
 ## Style guidelines
 
-Follow these rules strictly when writing release notes:
-
-### Tone
-
-- **Direct and concise.** Every word must earn its place. Remove filler, hedging, and thesis-style explanations.
-- **Encouraging and positive.** Highlight value and new possibilities. Do not be dry or clinical.
-- **Transparent.** Be honest about changes, even potentially negative ones, to maintain trust.
-- **User-centric.** Write from the user's perspective, using the language they know.
-
-### Do
-
-- Use second person ("you can", "your cluster")
-- Use active voice
-- Use present tense for the feature description
-- State clearly when a Technology Preview feature moves to fully supported
-- Keep each release note entry to 3-5 sentences total (excluding the heading and link)
-
-### Do not
-
-- Use "discontinued" -- instead say "We are taking our product in the following direction..."
-- Use corporate-speak: "cost-effective," "reducing operational expenses," "enhances efficiency," "streamlines operations"
-- Over-explain the technical internals unless the user needs them to act
-- Use jargon without context -- if a term must be used, add a brief parenthetical explanation
-- Write more than two paragraphs per entry (excluding the link)
+- Second person ("you can", "your cluster"), active voice, present tense
+- Direct and concise — every word must earn its place. No filler, hedging, or corporate-speak ("cost-effective," "streamlines operations")
+- 3-5 sentences per entry, max two paragraphs (excluding link)
+- Never use "discontinued" — instead frame as "We are taking our product in the following direction..."
+- No unexplained jargon — add a brief parenthetical if a term must be used
+- Do not over-explain technical internals unless the user needs them to act
 
 ## Workflow
 
-1. **Extract context.** Read the PR diff and description to identify the core functionality and the problem it solves.
-2. **Identify the type.** Determine whether this is a new feature, bug fix, deprecation, or TP-to-GA change.
-3. **Extract the JIRA ID.** Pull the JIRA tracking ID from the PR title, description, or branch name.
-4. **Apply the template.** Use the matching template for the change type.
-5. **Write from the user's perspective.** Use second person, active voice, present tense.
-6. **Add the link.** Include an xref or URL placeholder for new features and TP-to-GA entries.
-7. **Polish.** Check against the style guidelines. Cut any word that does not add meaning.
+1. **Extract context** — read PR diff/description, identify core functionality and the problem it solves
+2. **Classify** — new feature, bug fix, deprecation, or TP-to-GA
+3. **Extract JIRA ID** — from PR title, description, or branch name
+4. **Draft** — apply the matching template, include xref link for features and TP-to-GA entries
+5. **Review** — verify against style guidelines, cut any word that does not add meaning
 
 ## Examples
 
