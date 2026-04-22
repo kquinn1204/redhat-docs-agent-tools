@@ -1,7 +1,6 @@
 ---
 name: verify-procedure
 description: Execute, test, and verify AsciiDoc procedures on a live OpenShift or Kubernetes cluster. Runs every command and validates every YAML block against a real cluster. Use this skill whenever the user asks to verify a procedure, test documentation steps, run through a guided exercise, prove a procedure works, check if steps are correct on a live system, or do a dry run of a doc. Requires an active oc/kubectl connection. For static review without a live system, use docs-tools:technical-reviewer instead.
-author: Red Hat Documentation Team
 allowed-tools: Bash, Read, Edit, Glob, Grep
 ---
 
@@ -29,210 +28,72 @@ You execute documented OpenShift/Kubernetes procedures against a live cluster to
 
 ## Profiles
 
-A **profile** is an optional companion Markdown file that configures a verification run. Profiles live in the `profiles/` directory under this skill, organized by target repo and topic. They provide attribute values, placeholder substitutions, prerequisites, scope controls, assertions, and cleanup overrides — so procedures can be verified repeatably without interactive guidance.
+Optional `.profile.md` files in `assets/` configure verification runs with attributes, substitutions, prerequisites, scope, assertions, and cleanup. See `references/profile-format.md` for the full format.
 
-See `profile-format.md` in this skill directory for the full format reference.
+**Discovery order**: explicit `--profile <path>` → auto-discover by matching `procedure` frontmatter → no profile (default behavior). Report the profile in the output header if found; no profile is not an error.
 
-### Why profiles live here
-
-Procedures live in external repositories like `openshift-docs` where you can only commit AsciiDoc source. Run configuration (substitution values, assertions, prerequisites) cannot be added there, so profiles live in this repo instead.
-
-### Profile discovery
-
-When the user invokes verify-procedure, look for a profile in this order:
-
-1. **Explicit path**: user passes a profile file path (e.g., `--profile profiles/openshift-docs/networking/installing-ptp-operator.profile.md`)
-2. **Auto-discovery**: search `profiles/` for a `.profile.md` file whose `procedure` frontmatter matches the `.adoc` path the user provided
-3. **No profile**: run with default behavior (current behavior, unchanged)
-
-If a profile is found, report it in the output header. If not, proceed silently — no profile is not an error.
-
-### Profile loading
-
-Read the profile file with the Read tool. Parse:
-
-1. **YAML frontmatter** — extract `procedure`, `description`, `cluster`, `timeout`, `cleanup`
-2. **## Attributes** — build an attribute map and conditional flags
-3. **## Substitutions** — build a placeholder-to-value map
-4. **## Prerequisites** — note assumed state (informational) and extract setup commands
-5. **## Scope** — extract `mode`, `steps`, `skip` controls
-6. **## Assertions** — build a step-label-to-assertion map
-7. **## Cleanup** — extract preserve list and additional cleanup commands
-
-Store all parsed profile data for use in subsequent steps.
+**Loading**: Read the profile and parse its YAML frontmatter and sections (`## Attributes`, `## Substitutions`, `## Prerequisites`, `## Scope`, `## Assertions`, `## Cleanup`). Store parsed data for use in subsequent steps.
 
 ## Workflow
 
-### Step 0: Connectivity check
-
-Before anything else, run:
+### Step 0: Init and connectivity
 
 ```bash
+export VERIFY_TIMEOUT=300  # if profile defines timeout
 bash scripts/verify_proc.sh init
 bash scripts/verify_proc.sh check-connection
 ```
 
-If a profile defines `timeout`, export it for the script:
-```bash
-export VERIFY_TIMEOUT=300
-bash scripts/verify_proc.sh init
-```
+If connection fails: stop and suggest `oc login` (or `docs-tools:technical-reviewer` for offline review), unless profile `mode` is `yaml-only` — then continue without a cluster.
 
-If the connection check fails and the profile `mode` is `execute` (or no profile), stop and tell the user to run `oc login` first, or suggest using `docs-tools:technical-reviewer` for offline review. If `mode` is `yaml-only`, continue without a cluster connection.
-
-### Step 0.5: Run prerequisite setup (if profile provides it)
-
-If the profile has `## Prerequisites` → `### Setup commands`, execute each command sequentially:
-
-```bash
-bash scripts/verify_proc.sh execute "prereq-1" "oc create namespace verify-test-ns --dry-run=client -o yaml | oc apply -f -"
-```
-
-If any setup command fails, stop the run and report which prerequisite could not be established. Include the profile's "Assumed state" items in the output header for context.
+If the profile has prerequisite setup commands, execute them sequentially via `execute "prereq-N" "<command>"`. Stop if any fail.
 
 ### Step 1: Parse the AsciiDoc file
 
-Read the `.adoc` file with the Read tool. As you parse, do the following:
+Read the `.adoc` file. Resolve `include::` directives (read included files, resolve relative paths). Resolve `ifdef::`/`ifndef::` using profile flags → document header → `_attributes.adoc` (warn if unresolvable). Do NOT silently skip content or mis-number steps.
 
-#### Handle include:: directives
-When you encounter `include::path/to/file.adoc[leveloffset=...]`, read that file too and incorporate its content at the correct position. Resolve relative paths from the directory of the including file.
+#### Extract and classify source blocks
 
-#### Handle ifdef/ifndef conditionals
-Read the conditional and resolve it:
-- If the profile defines conditional flags (e.g., `openshift-enterprise: yes`), use those — they take priority
-- Otherwise, if the attribute is defined in the document or `_attributes.adoc`, evaluate it
-- If neither source resolves it, note which branch you're taking and warn the user
-- Do NOT silently skip content or mis-number steps
-
-#### Extract source blocks
-Identify `[source,TYPE]` blocks where TYPE is: `terminal`, `bash`, `shell`, `yaml`, `json`. Look for the `----` delimiters. Handle:
-- **Nested blocks**: A source block inside an example block or sidebar — extract correctly
-- **Listing blocks without [source]**: These are `----` delimited blocks without a source annotation — skip them (they're display-only)
-- **Callout annotations**: Lines ending with `<1>`, `<2>`, etc. inside source blocks — strip these before execution
-
-#### Resolve AsciiDoc attributes
-If a block has `subs="attributes+"` or the document uses `{attribute-name}` references, resolve in this priority order:
-1. **Profile attributes** — values from the profile's `## Attributes` table (highest priority)
-2. **Document header** — `:attribute-name: value` in the `.adoc` file
-3. **_attributes.adoc** — in the same directory or parent
-4. **Cluster fallback** — for `{product-version}`, fall back to `oc version`
-
-#### Classify each block
-
-For each extracted source block, classify it as one of:
+Identify `[source,TYPE]` blocks (`terminal`, `bash`, `shell`, `yaml`, `json`) within `----` delimiters. Strip callout annotations (`<1>`, `<2>`). Skip listing blocks without `[source]` (display-only).
 
 | Classification | Criteria | Action |
 |---|---|---|
-| **execute** | `[source,terminal]`, `[source,bash]`, `[source,shell]` block that contains actual commands | Strip prompts, join continued lines, send to `execute` |
-| **validate-yaml** | `[source,yaml]` block | Pipe to `validate-yaml` |
-| **validate-json** | `[source,json]` block | Pipe to `validate-json` |
-| **save-to-file** | Step text says "save", "create a file named", "create a ... file" + mentions a filename | Pipe to `save-file` or `validate-yaml` with filename arg |
-| **skip-example** | Block preceded by "Example output", "sample output", "expected output", "output resembles", "similar to the following" | Skip, report as `[SKIP]` |
-| **skip-placeholder** | Block contains `<multi_word_placeholder>`, `${VAR}`, `CHANGEME`, `REPLACE`, or `<your-...>` patterns AND the profile does not provide substitution values for all of them | Skip, report with explanation |
+| **execute** | `[source,terminal/bash/shell]` with actual commands | Strip prompts (`$`, `#`, `[root@host ~]#`), join `\`-continued lines, send to `execute` |
+| **validate-yaml/json** | `[source,yaml]` or `[source,json]` | Pipe to `validate-yaml` or `validate-json` |
+| **save-to-file** | Step says "save/create a file" + filename | Pipe to `save-file` or `validate-yaml` with filename arg |
+| **skip-example** | Preceded by "Example/sample/expected output" | Skip, report `[SKIP]` |
+| **skip-placeholder** | Contains `<placeholder>`, `${VAR}`, `CHANGEME` without profile substitutions | Skip, report with explanation |
 
-#### Number steps hierarchically
-Track AsciiDoc numbered list markers:
-- `. Step text` → depth 1 (major step: 1, 2, 3)
-- `.. Substep` → depth 2 (1.a, 1.b, 2.a)
-- `... Sub-substep` → depth 3 (1.a.i, 1.a.ii)
+Number steps hierarchically: `.` → 1,2,3 / `..` → 1.a,1.b / `...` → 1.a.i,1.a.ii.
 
-Associate each source block with its nearest preceding step.
+#### Resolve attributes and apply profile overrides
 
-#### Apply substitutions (if profile provides them)
+Attribute priority: profile → document header → `_attributes.adoc` → cluster fallback (`oc version` for `{product-version}`).
 
-After classifying blocks but before execution, apply the profile's substitution map:
-
-1. For each block classified as `skip-placeholder`, check if ALL placeholders in the block have substitution values in the profile
-2. If yes, replace the placeholders with the profile values and reclassify the block as `execute`, `validate-yaml`, or `save-to-file` based on its source type
-3. If only some placeholders are covered, keep the block as `skip-placeholder` and report which placeholders are still unresolved
-4. Also apply substitutions to blocks classified as `execute` — they may contain placeholders mixed with real commands
-
-Substitution matching rules:
-- `<placeholder>` — match the literal angle-bracket string
-- `${VAR}` and `$VAR` — match both forms
-- `CHANGEME`, `REPLACE` — match as whole words only
-
-#### Apply scope controls (if profile provides them)
-
-After substitutions, filter the block list based on the profile's scope:
-
-- **steps**: If set to a range (e.g., `1-5`) or list (e.g., `1,3,5`), only include blocks whose top-level step falls within the range. Default: `all`
-- **skip**: Remove blocks with matching step labels. Report each as `[SKIP] <label> Skipped by profile`
-- **mode**: If `dry-run-only`, reclassify `execute` blocks that contain `oc create` or `oc apply` (without `--dry-run`) as skip — only YAML validation and dry-runs proceed. If `yaml-only`, skip all execution and dry-runs, only check YAML/JSON syntax
+After classification, apply profile substitutions to resolve placeholders (reclassify `skip-placeholder` → appropriate type if all placeholders are covered). Then apply scope controls (`steps`, `skip`, `mode`) to filter the block list.
 
 ### Step 2: Execute the procedure
 
-Process blocks sequentially. For each block, based on its classification:
+Process blocks sequentially. Use heredocs for content piping:
 
-**execute** — Strip prompts and run:
 ```bash
 bash scripts/verify_proc.sh execute "1.a" "oc get pods -n openshift-operators"
-```
-
-Prompt stripping rules (you apply these before sending to the script):
-- `$ command` → `command`
-- `# command` → `command`
-- `[root@host ~]# command` → `command`
-- `[user@host dir]$ command` → `command`
-- `~]# command` → `command`
-
-Join backslash-continued lines into a single command.
-
-**validate-yaml** — Pipe the content via heredoc (handles quotes and special chars safely):
-```bash
-bash scripts/verify_proc.sh validate-yaml "1.a" <<'YAML'
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: openshift-ptp
+bash scripts/verify_proc.sh validate-yaml "1.a" ["filename.yaml"] <<'YAML'
+...
 YAML
-```
-
-If the step instructs saving to a file, pass the filename:
-```bash
-bash scripts/verify_proc.sh validate-yaml "1.a" "my-resource.yaml" <<'YAML'
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: openshift-ptp
-YAML
-```
-
-**validate-json** — Pipe the content via heredoc:
-```bash
 bash scripts/verify_proc.sh validate-json "2" <<'JSON'
-{"apiVersion": "v1", "kind": "ConfigMap"}
+...
 JSON
-```
-
-**save-to-file** — For non-YAML/JSON content that should be saved:
-```bash
 bash scripts/verify_proc.sh save-file "3.a" "config.conf" <<'CONTENT'
-[defaults]
-remote_user = ansible
+...
 CONTENT
 ```
 
-**skip** — Just report it in your output, no script call needed.
+Skip blocks: just report `[SKIP]` in output.
 
-#### Check assertions (if profile provides them)
+#### Assertions
 
-After each step executes, check the profile's assertion table for matching step labels. For each assertion on that step:
-
-| Type | Check |
-|---|---|
-| `contains` | stdout includes the expected string (case-sensitive) |
-| `not-contains` | stdout does NOT include the string |
-| `regex` | stdout matches the regex pattern |
-| `exit-code` | command exited with the specified code |
-
-Report assertion results:
-- All pass: `[ASSERT] <label> All assertions passed (N/N)`
-- Any fail: `[FAIL] <label> Assertion failed: expected output to contain "Succeeded", got "Pending"`
-
-A step can have multiple assertions — all must pass for the step to be considered passing. Assertion failures override exit-code-based pass/fail (a step that exits 0 but fails an assertion is a FAIL).
-
-Steps without assertions use the existing behavior (exit code 0 = pass).
+After each step, check profile assertions (`contains`, `not-contains`, `regex`, `exit-code`). All must pass — assertion failures override exit code 0. Report as `[ASSERT] <label> N/N passed` or `[FAIL] <label> reason`. Steps without assertions use exit code 0 = pass.
 
 ### Step 3: Observations
 
@@ -250,84 +111,32 @@ Then add your own observations:
 
 ### Step 4: Cleanup
 
-Cleanup behavior depends on the profile's `cleanup` frontmatter value:
+Profile `cleanup` value controls behavior: `auto` (run immediately), `manual` (default — wait for user), `skip` (no cleanup). Run `bash scripts/verify_proc.sh cleanup`. If the profile has a `## Cleanup` section, preserve listed resources and execute additional cleanup commands afterward.
 
-- **`auto`** — run cleanup immediately after summary
-- **`manual`** (default) — only run when the user asks
-- **`skip`** — do not clean up at all
+## Assemblies and partial cluster state
 
-When running cleanup:
+For assemblies: verify end-to-end (resolve all `include::` first). For single modules: verify but warn about possible parent assembly dependencies.
 
-```bash
-bash scripts/verify_proc.sh cleanup
-```
+When a step fails due to missing prerequisites: report clearly, continue with remaining steps, and list discovered prerequisites in observations.
 
-If the profile has a `## Cleanup` section:
-- **Preserve list**: Before cleanup, note preserved resources. After `verify_proc.sh cleanup` runs, re-create any that were accidentally deleted, or filter them from the tracked resources before calling cleanup. Report preserved resources as `[PRESERVED] <resource>`
-- **Additional commands**: After the standard cleanup, execute each additional cleanup command:
-  ```bash
-  bash scripts/verify_proc.sh execute "cleanup-1" "oc delete project verify-test-ns --ignore-not-found"
-  ```
+## What to flag
 
-## Handling assemblies and partial cluster state
-
-### Assemblies (multi-file procedures)
-OpenShift docs use assemblies that `include::` multiple procedure modules. When verifying an assembly:
-- Verify the full assembly end-to-end, not individual modules in isolation
-- Resolve all `include::` directives to build the complete procedure before starting execution
-- If the user points you at a single module (not an assembly), verify just that module but warn that it may depend on context from a parent assembly
-
-### Partial cluster state
-Procedures often assume prior setup (an operator installed, a namespace existing, a previous procedure completed). When a command fails because of missing prerequisites:
-- Report the failure clearly: "Step 2 failed — namespace `openshift-ptp` does not exist. This procedure likely assumes the namespace was created by a prior procedure or prerequisite."
-- Continue with remaining steps — later steps may still provide useful validation
-- In your observations, list all assumed prerequisites you discovered during execution
-
-## What you should flag (judgment calls only Claude can make)
-
-- "Step 4 references namespace `openshift-ptp` but no earlier step creates it — is it expected to exist?"
-- "Step 2 creates a resource and step 3 immediately queries it — may need a wait/retry"
-- "The `oc adm` command in step 5 requires cluster-admin — not mentioned in prerequisites"
-- "Step 3.b has `<your-registry-url>` — this is a placeholder, cannot execute"
-- "The YAML in step 2 uses `apiVersion: v1beta1` which may be deprecated on this cluster version"
-- "`ifdef::openshift-enterprise[]` — I'm including this block assuming an OpenShift Enterprise context"
+Missing prerequisites, missing wait/polling between create and verify steps, undocumented permission requirements (`cluster-admin`), unresolvable placeholders, deprecated API versions, and `ifdef` assumptions.
 
 ## Output format
 
-Present results as you go, using this format:
+Present results as you go:
 
 ```
 --- Procedure Verification: <filename> ---
-Profile: installing-ptp-operator.profile.md (or "none")
-Workdir: /tmp/verify-proc-XXXXXX
-CLI: oc | Cluster: https://api.cluster.example.com:6443
-Mode: execute | Timeout: 300s | Cleanup: auto
-Assumed state: Cluster is reachable and user has cluster-admin
+Profile: <name> (or "none") | CLI: oc | Mode: execute | Cleanup: auto
 
-[Prereq 1] Setup: create test namespace
-    Executing: oc create namespace verify-test-ns --dry-run=client -o yaml | oc apply -f -
-    Result: PASS
-
-[Step 1] Install the PTP Operator
-  [Step 1.a] Save the following YAML as ptp-namespace.yaml:
-    YAML syntax: PASS
-    Saved to: /tmp/verify-proc-XXXXXX/ptp-namespace.yaml
-    Dry-run: PASS
-  [Step 1.b] Create the Namespace CR:
-    Executing: oc create -f ptp-namespace.yaml
-    Result: PASS
-    [ASSERT] 1.b All assertions passed (1/1)
-
-[Step 4] Verify the Operator is installed:
-    Executing: oc get csv -n openshift-ptp
-    Result: PASS
-    Output: ptp-operator.v4.21.0  Succeeded
-    [ASSERT] 4 All assertions passed (1/1)
+[Step 1.a] YAML syntax: PASS | Saved to: /tmp/verify-proc-XXXXXX/file.yaml
+[Step 1.b] Executing: oc create -f file.yaml → PASS [ASSERT 1/1]
+[Step 2]   [SKIP] placeholder: <your-registry-url>
 
 --- Observations ---
-- Step 3 applies a SubscriptionConfig but doesn't wait for the operator to become ready
-  before step 4 checks the CSV. Consider adding: oc wait --for=condition=...
-- No .Prerequisites section found — verify that prerequisites are documented
+- <judgment calls>
 
 --- Summary ---
 Total: 7 | Passed: 7 | Failed: 0 | Assertions: 2/2 passed
