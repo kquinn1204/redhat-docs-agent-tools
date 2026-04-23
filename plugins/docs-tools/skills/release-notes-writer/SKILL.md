@@ -20,23 +20,29 @@ Release notes in the OCP repo are AsciiDoc bullet entries (`*`) under category s
 
 ### New feature or enhancement
 
-A single bullet entry with a JIRA comment above it. Structure:
+A titled section with prose paragraphs (no bullet points). Structure:
 
 1. **JIRA tracking comment** — AsciiDoc comment with the JIRA ID
-2. **What you can now do** — Start with "With this release, you can..." or "You can now..."
-3. **Why it matters** — One sentence on the benefit to the user
-4. **Documentation link** — "For more information, see xref:..."
+2. **Section ID and title** — An `[id=...]` anchor and `==` heading that describes the feature concisely
+3. **What you can now do** — Start with "With this release, you can..." or "You can now..."
+4. **Why it matters** — One sentence on the benefit to the user
+5. **Documentation link** — "For more information, see xref:..."
 
 Format:
 
 ```asciidoc
 // <JIRA-ID>
-* With this release, you can <what the user can now do>. <Why it matters — the benefit>.
-+
+[id="ocp-release-notes-<feature-slug>_{context}"]
+== <Concise feature title>
+
+With this release, you can <what the user can now do>. <Why it matters — the benefit>.
+
+<Optional second paragraph with additional detail, configuration, or how to disable.>
+
 For more information, see xref:<assembly-or-module-id>[<section title>].
 ```
 
-If multiple distinct features are covered in a single PR, produce one entry per feature.
+If multiple distinct features are covered in a single PR, produce one entry per feature, each with its own section ID and heading.
 
 ### Bug fix (fixed issue)
 
@@ -96,9 +102,14 @@ Given a PR that adds ExecCPUAffinity documentation for low-latency workloads (TE
 
 ```asciidoc
 // TELCODOCS-2496
-* With this release, you can protect latency-sensitive workloads from performance degradation caused by `oc exec` and shell processes. When you apply a `PerformanceProfile`, exec processes are automatically pinned to a designated CPU so they do not interrupt your workload CPUs. This feature is enabled by default for Guaranteed QoS pods with whole-integer CPU requests, so your Telco RAN DU and 5G Core applications maintain consistent, predictable performance without additional configuration.
-+
-For more information, see xref:scalability_and_performance/cnf-tuning-low-latency-nodes-with-perf-profile.adoc#cnf-protecting-low-latency-workloads_cnf-low-latency-perf-profile[Protecting low-latency workloads from exec process interruption].
+[id="ocp-release-notes-exec-cpu-affinity_{context}"]
+== CRI-O ExecCPUAffinity protects low-latency workloads from exec process interruption
+
+With this release, you can protect latency-sensitive workloads from performance degradation caused by `oc exec` and shell processes. When you apply a `PerformanceProfile`, the CRI-O `ExecCPUAffinity` feature automatically pins exec processes to a designated CPU within the container's allocated set, preventing them from running on your workload CPUs.
+
+This feature is enabled by default for `Guaranteed` QoS pods with whole-integer CPU requests and requires no additional configuration. You can disable it per profile by adding the `performance.openshift.io/exec-cpu-affinity: "disable"` annotation to the `PerformanceProfile`.
+
+For more information, see xref:scalability_and_performance/cnf-tuning-low-latency-nodes-with-perf-profile.adoc#cnf-protecting-low-latency-workloads_cnf-tuning-low-latency-nodes-with-perf-profile[How ExecCPUAffinity prevents latency spikes from exec operations].
 ```
 
 ### Bug fix example
