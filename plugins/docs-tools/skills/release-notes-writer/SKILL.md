@@ -281,7 +281,7 @@ The following additional VCF and VVF components are outside the scope of Red Hat
 ```asciidoc
 Running firmware upgrades for hosts in deployed bare metal clusters (Generally Available)::
 +
-For hosts in deployed bare metal clusters, you can update firmware attributes and the firmware image. As a result, you can run firmware upgrades and update BIOS settings for hosts that are already provisioned without fully deprovisioning them. Performing a live update to the `HostFirmwareComponents`, `HostFirmareSettings`, or `HostUpdatePolicy` resource can be a destructive and destabilizing action. Perform these updates only after careful consideration.
+For hosts in deployed bare metal clusters, you can update firmware attributes and the firmware image. As a result, you can run firmware upgrades and update BIOS settings for hosts that are already provisioned without fully deprovisioning them. Performing a live update to the `HostFirmwareComponents`, `HostFirmwareSettings`, or `HostUpdatePolicy` resource can be a destructive and destabilizing action. Perform these updates only after careful consideration.
 +
 This feature was introduced in {product-title} 4.18 with Technology Preview status. This feature is now supported as generally available in {product-title} {product-version}.
 +
