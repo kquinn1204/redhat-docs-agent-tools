@@ -1,7 +1,7 @@
 ---
 name: release-notes-writer
 description: Generate user-centric release notes for OpenShift telco features from GitHub PR content. Reads PR diffs, applies structured templates, and outputs AsciiDoc release note entries.
-allowed-tools: Read, Bash, Grep, Glob, Agent, WebFetch
+allowed-tools: Read, Bash, Grep, Glob, Agent
 ---
 
 # Release Notes Writer
@@ -114,7 +114,7 @@ Format:
 
 ```asciidoc
 // <JIRA-ID>
-* In this release, <what is deprecated>. <What to use instead or what direction the product is taking>. (<JIRA-ID>)
+* In this release, <what is deprecated>. <What to use instead or what direction the product is taking>. (link:https://issues.redhat.com/browse/<JIRA-ID>[<JIRA-ID>])
 ```
 
 ### Technology Preview to GA
