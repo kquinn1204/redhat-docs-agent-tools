@@ -123,6 +123,41 @@ When a step fails due to missing prerequisites: report clearly, continue with re
 
 Missing prerequisites, missing wait/polling between create and verify steps, undocumented permission requirements (`cluster-admin`), unresolvable placeholders, deprecated API versions, and `ifdef` assumptions.
 
+## AI-ready documentation feedback
+
+After executing the procedure, evaluate the AsciiDoc source for AI-agent readability. Include findings in the Observations output (Step 3). These recommendations optimize docs for AI agent skills to parse and execute procedures with minimal token usage, while keeping the content clear for human readers.
+
+### Prerequisites must not contain verify commands
+
+Flag any `Verify:` lines (e.g., `Verify: \`oc version\``) in `.Prerequisites` sections. Prerequisites state what must already be true — they are assumed met before the procedure starts. Verification commands belong in the skill's preflight checks, not in the AsciiDoc.
+
+Recommend: remove `Verify:` lines and their `+` continuation markers from prerequisites.
+
+### Parameter descriptions should use structured tables
+
+Flag inline definition lists used to describe YAML parameters (e.g., `\`labels\`:: The label assigned to...`). These are harder for agents to parse reliably than structured tables.
+
+Recommend: convert to a table with columns `Parameter | Format/Value | Description`.
+
+### Parameter names should use dot notation
+
+Flag parameter tables where names are bare field names (e.g., `channel`, `addresses`, `name`) without their YAML path context. An agent parsing `name` cannot determine whether it maps to `metadata.name` or `spec.name` without reading the YAML example.
+
+Recommend: use dot notation that matches the YAML structure (e.g., `spec.channel`, `metadata.name`, `spec.addresses`). This lets agents map table rows directly to YAML paths.
+
+### Parameter tables should follow YAML examples
+
+Flag parameter tables that appear before the YAML manifest they describe. Human readers benefit from seeing the concrete example first, then the reference table for details. Agents benefit because they can parse the YAML structure first, then use the table to understand constraints and valid values.
+
+Recommend: place the YAML example first, then the parameter table immediately after.
+
+### Flag token-inefficient patterns
+
+Flag these patterns that waste tokens without adding value:
+- **Verbose abstracts** that repeat the procedure title (e.g., title "Configuring an address pool" with abstract "To configure an address pool for MetalLB, you can configure an address pool...")
+- **Redundant prose between steps** that restates what the command does (e.g., "Run the following command to apply the configuration:" before `oc apply -f`)
+- **Inline parameter descriptions scattered through prose** instead of consolidated in a single table
+
 ## Output format
 
 Present results as you go:
