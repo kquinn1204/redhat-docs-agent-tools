@@ -6,11 +6,31 @@ allowed-tools: Bash, Read, Edit, Glob, Grep
 
 # Procedure Verification Skill
 
-You execute documented OpenShift/Kubernetes procedures against a live cluster to prove they work end-to-end. **You** are the parser and judgment layer. The bash script `scripts/verify_proc.sh` is a thin executor — it only runs commands, validates YAML, and saves files.
+You execute documented OpenShift/Kubernetes procedures against a live cluster to prove they work end-to-end. **You** are the parser and judgment layer. Two scripts are available:
+
+- `scripts/verify_proc.sh` — Thin executor. Claude does all AsciiDoc parsing and classification, then calls the shell script for individual operations (execute, validate-yaml, save-file, cleanup). Best for complex procedures requiring Claude's judgment.
+- `scripts/verify_proc.rb` — Standalone parser+executor. Parses the AsciiDoc file directly, extracts source blocks, and executes them sequentially. Best for quick validation runs.
 
 **This is not a review tool.** For reviewing documentation quality without a live system, use `docs-tools:technical-reviewer`.
 
-## Architecture: what you do vs. what the script does
+## Quick run with Ruby script
+
+For a fast end-to-end validation without Claude-driven parsing:
+
+```bash
+ruby scripts/verify_proc.rb <file.adoc>
+```
+
+The Ruby script handles:
+- Parsing `[source,terminal]`, `[source,bash]`, and `[source,yaml]` blocks within `----` delimiters
+- Skipping `.Example output` blocks (not executed)
+- Stripping `$ ` prompt prefixes from terminal commands
+- YAML syntax validation and `oc apply --dry-run=client` for Kubernetes resources
+- Sequential execution with fail-fast on errors
+- Flagging verification steps (`verify`, `check`, `confirm` in the instruction)
+- Magic step detection (missing login/environment setup)
+
+## Architecture: what you do vs. what the shell script does
 
 | You (Claude) | Script (`verify_proc.sh`) |
 |---|---|
