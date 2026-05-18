@@ -1,18 +1,46 @@
 ---
 name: release-notes-writer
-description: Generate user-centric release notes for OpenShift telco features from GitHub PR content. Reads PR diffs, applies structured templates, and outputs AsciiDoc release note entries.
+description: Generate user-centric release notes for OpenShift features from GitHub PR content or JIRA tickets. Reads PR diffs or JIRA issue details, applies structured templates, and outputs AsciiDoc release note entries.
+argument-hint: <pr-url|JIRA-KEY>
 allowed-tools: Read, Bash, Grep, Glob, Agent
 ---
 
 # Release Notes Writer
 
-Write release notes for OpenShift telco features by analyzing GitHub PR content or user-provided descriptions, applying structured templates below.
+Write release notes for OpenShift features by analyzing GitHub PR content or JIRA ticket details, applying structured templates below.
 
 When given a PR URL, extract content first:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-pr-reader/scripts/git_pr_reader.py read --url "<PR_URL>" --filter "*.adoc"
 ```
+
+When given a JIRA issue key (e.g., OCPBUGS-12345, TELCODOCS-2565), extract content first:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/jira-reader/scripts/jira_reader.py \
+  --issue "<JIRA_KEY>" --include-comments
+```
+
+From the JSON output, use:
+- `issue_type` and `custom_fields.release_note_type` → classification (see mapping below)
+- `summary` → starting point for the entry title
+- `description` → source for the user-facing impact description
+- `fix_versions` → determine which release this targets
+- `comments` → additional context on workarounds (for known issues) or root cause (for bug fixes)
+- `git_links` → if PRs are linked, optionally fetch the diff via git-pr-reader for technical detail
+
+### JIRA classification mapping
+
+| JIRA issue_type | release_note_type field | Template to use |
+|-----------------|------------------------|-----------------|
+| Bug | — | Bug fix (Before/Consequence/Fix/Result) |
+| Story / Enhancement | Enhancement | New feature (definition list) |
+| Story / Enhancement | — | New feature (definition list) |
+| Any | — with "known issue" in summary or labels | Known issue ("Currently, ...") |
+| Any | Deprecation | Deprecated feature |
+
+When `release_note_type` is set, it takes precedence over `issue_type` for classification. When neither field clearly indicates the type, ask the user.
 
 ## Release note templates
 
@@ -189,9 +217,9 @@ To update an {product-title} 4.YY cluster to this latest release, see xref:../up
 
 ## Workflow
 
-1. **Extract context** — read PR diff/description, identify core functionality and the problem it solves
-2. **Classify** — new feature, bug fix, deprecation, or TP-to-GA
-3. **Extract JIRA ID** — from PR title, description, or branch name
+1. **Extract context** — If given a PR URL, read the PR diff via git-pr-reader. If given a JIRA key, read the ticket via jira-reader. Identify core functionality and the problem it solves.
+2. **Classify** — new feature, bug fix, known issue, deprecation, or TP-to-GA. For JIRA input, use the classification mapping above.
+3. **Extract JIRA ID** — from PR title/description/branch name, or directly from the input JIRA key
 4. **Draft** — apply the matching template, include xref link for features and TP-to-GA entries
 5. **Review** — verify against style guidelines, cut any word that does not add meaning
 
@@ -369,8 +397,29 @@ To maintain security and prevent the collection of sensitive information, the In
 These improvements allow {product-title} to better analyze the efficiency of the data gathering process and provide more precise environment insights. (link:https://redhat.atlassian.net/browse/OCPBUGS-79534[OCPBUGS-79534])
 ```
 
+## JIRA-sourced examples
+
+### Bug fix from JIRA
+
+Given JIRA ticket OCPBUGS-63584 with issue_type "Bug", summary "vSphere install allows both template and clusterOSImage", and description detailing the race condition:
+
+```asciidoc
+* Before this update, the vSphere platform configuration lacked a validation check to prevent the simultaneous definition of both a custom virtual machine template and a `clusterOSImage` parameter. As a consequence, users could provide both parameters in the installation configuration, leading to ambiguity and potential deployment failures. With this release, the vSphere validation logic has been updated to ensure that template and `clusterOSImage` parameters are treated as mutually exclusive, returning a specific error message if both fields are populated. (link:https://issues.redhat.com/browse/OCPBUGS-63584[OCPBUGS-63584])
+```
+
+### Known issue from JIRA
+
+Given JIRA ticket OCPBUGS-41934 with "known issue" in labels and workaround details in comments:
+
+```asciidoc
+* Currently, on clusters with SR-IOV network virtual functions configured, a race condition might occur between system services responsible for network device renaming and the TuneD service managed by the Node Tuning Operator. As a consequence, the TuneD profile might become degraded after the node restarts, leading to performance degradation. As a workaround, restart the TuneD pod to restore the profile state. (link:https://issues.redhat.com/browse/OCPBUGS-41934[OCPBUGS-41934])
+```
+
+Note: For JIRA-sourced entries, the JIRA key is already known — use it directly in the JIRA link. Check `git_links` in the JIRA output for any linked PRs that may provide additional technical detail.
+
 ## Integration with other skills
 
+- **jira-reader**: Use to extract JIRA issue details, comments, and linked PRs before drafting
 - **git-pr-reader**: Use to extract PR metadata, file diffs, and AsciiDoc content before drafting
 - **docs-review-style**: Use after drafting to verify style guide compliance
 - **rh-ssg-release-notes**: Use after drafting to verify SSG release note conventions
