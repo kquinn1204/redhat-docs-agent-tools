@@ -217,6 +217,10 @@ class JiraReader:
                 )
                 custom_fields["release_note_type"] = release_note_type
 
+            # Release Note Text (customfield_10783)
+            if hasattr(issue.fields, "customfield_10783") and issue.fields.customfield_10783:
+                custom_fields["release_note_text"] = issue.fields.customfield_10783
+
             # Fix Versions
             if issue.fields.fixVersions:
                 custom_fields["fix_versions"] = [v.name for v in issue.fields.fixVersions]

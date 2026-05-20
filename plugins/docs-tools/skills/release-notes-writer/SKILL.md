@@ -23,9 +23,10 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/jira-reader/scripts/jira_reader.py \
 ```
 
 From the JSON output, use:
-- `issue_type` and `custom_fields.release_note_type` → classification (see mapping below)
-- `summary` → starting point for the entry title
-- `description` → source for the user-facing impact description
+- `custom_fields.release_note_text` → **primary source** for the release note entry. When populated, use this as the basis for the draft — it contains SME-authored or tech-writer-polished text. Apply template formatting and style guidelines, but preserve the substance.
+- `custom_fields.release_note_type` and `issue_type` → classification (see mapping below)
+- `summary` → starting point for the entry title (features/enhancements)
+- `description` → fallback source for user-facing impact when `release_note_text` is empty
 - `fix_versions` → determine which release this targets
 - `comments` → additional context on workarounds (for known issues) or root cause (for bug fixes)
 - `git_links` → if PRs are linked, optionally fetch the diff via git-pr-reader for technical detail
@@ -220,8 +221,9 @@ To update an {product-title} 4.YY cluster to this latest release, see xref:../up
 1. **Extract context** — If given a PR URL, read the PR diff via git-pr-reader. If given a JIRA key, read the ticket via jira-reader. Identify core functionality and the problem it solves.
 2. **Classify** — new feature, bug fix, known issue, deprecation, or TP-to-GA. For JIRA input, use the classification mapping above.
 3. **Extract JIRA ID** — from PR title/description/branch name, or directly from the input JIRA key
-4. **Draft** — apply the matching template, include xref link for features and TP-to-GA entries
-5. **Review** — verify against style guidelines, cut any word that does not add meaning
+4. **Check for SME/writer text** — If `custom_fields.release_note_text` is populated, use it as the primary source for the draft. This field contains text authored by the SME and often polished by a technical writer. Preserve its substance — apply template formatting and style guidelines but do not rewrite from scratch using the description or comments.
+5. **Draft** — If `release_note_text` exists, format it to match the appropriate template. If not, draft from `description`, `comments`, and linked PR content. Include xref link for features and TP-to-GA entries.
+6. **Review** — verify against style guidelines, cut any word that does not add meaning
 
 ## Examples
 
