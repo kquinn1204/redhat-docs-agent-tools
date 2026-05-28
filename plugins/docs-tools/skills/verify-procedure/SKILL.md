@@ -161,3 +161,20 @@ Profile: <name> (or "none") | CLI: oc | Mode: execute | Cleanup: auto
 --- Summary ---
 Total: 7 | Passed: 7 | Failed: 0 | Assertions: 2/2 passed
 ```
+
+## Report generation
+
+After every verification run, write a markdown report to `.work/reports/<procedure-filename>-<YYYY-MM-DD>.md`. This captures the full context that scrolls past during execution.
+
+The report must include:
+
+| Section | Content |
+|---|---|
+| **Header table** | Procedure path, repo, date, cluster version, node, profile used, overall result |
+| **Environment setup** | What was needed beyond the documented prerequisites — operator installs, NIC additions, firewall rules, mock services. Include the exact commands used. |
+| **Step-by-step results** | Table with step label, description, PASS/FAIL/SKIP, and notes |
+| **Troubleshooting log** | Every issue encountered in order: what failed, the error message, why it failed, and how it was resolved. This is the most valuable section for learning. |
+| **Observations** | Documentation issues found — missing prerequisites, incorrect values, unclear steps, missing wait/polling, unresolvable placeholders |
+| **Doc changes made** | Summary of any fixes applied, with PR link if created |
+
+Create the `.work/reports/` directory if it does not exist. If a report for the same procedure and date already exists, append a counter (`-2`, `-3`).
